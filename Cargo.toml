@@ -7,4 +7,6 @@ edition = "2021"
 
 [dependencies]
 argparse = "0.2.2"
+image = "0.25.5"
+viuer = "0.9.1"
 wavers = "1.5.1"
