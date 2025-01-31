@@ -4,8 +4,8 @@ use argparse::{ArgumentParser, StoreTrue, Store};
 use wavers::Wav;
 use std::path::Path;
 use std::process;
-use viuer::{print, Config};
-use std::{thread, time};
+use viuer;
+use image::{DynamicImage, Pixel, Rgba, RgbaImage};
 
 fn main() {
     let mut verbose = false;
@@ -29,16 +29,15 @@ fn main() {
     // Load wav file
     let _wav: Wav<i16> = Wav::from_path(&fp).unwrap();
 
-    // Start adding image framework
-    let conf = Config {
-        // Start from row 4 and column 20.
-        x: 20,
-        y: 4,
+    let conf = viuer::Config {
+        absolute_offset: false,
         ..Default::default()
     };
 
-    let img = image::DynamicImage::ImageRgba8(image::RgbaImage::new(20, 10));
-    print(&img, &conf).expect("Image printing failed.");
+    let mut img = DynamicImage::ImageRgba8(RgbaImage::new(60, 60));
+    let start = Rgba::from_slice(&[255, 0, 0, 255]);
+    let end = Rgba::from_slice(&[0, 0, 255, 255]);
+    image::imageops::vertical_gradient(&mut img, start, end);
 
-    thread::sleep(time::Duration::from_millis(1000));
+    viuer::print(&img, &conf).unwrap();
 }
