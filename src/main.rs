@@ -1,7 +1,7 @@
 extern crate argparse;
 
 use argparse::{ArgumentParser, StoreTrue, Store};
-use wavers::Wav;
+use wavers::{Wav};
 use std::path::Path;
 use std::process;
 use viuer;
@@ -26,8 +26,18 @@ fn main() {
         process::exit(1);
     }
 
-    // Load wav file
-    let _wav: Wav<i16> = Wav::from_path(&fp).unwrap();
+    // Loop through the file in chunks
+    let chunk_size = 16;
+    let mut wav: Wav<i16> = Wav::from_path(&fp).unwrap();
+    let _res = loop
+    {
+        // let _res = wav.read_samples(16);
+        let res2 = wav.seek_by_samples(chunk_size);
+        let _data = match res2 {
+            Ok(data) => data,
+            Err(_error) => break,
+        };
+    };
 
     let conf = viuer::Config {
         absolute_offset: false,
