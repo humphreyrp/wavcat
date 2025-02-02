@@ -7,6 +7,10 @@ use std::process;
 use viuer;
 use wavers::Wav;
 
+fn handle_chunk(_data: u64) {
+    // TODO: Add to fft
+}
+
 fn main() {
     let mut verbose = false;
     let mut fp: String = "".to_string();
@@ -31,15 +35,14 @@ fn main() {
     // Loop through the file in chunks
     let chunk_size = 16;
     let mut wav: Wav<i16> = Wav::from_path(&fp).unwrap();
-    let _res = loop {
-        // let _res = wav.read_samples(16);
-        let res2 = wav.seek_by_samples(chunk_size);
-        let _data = match res2 {
-            Ok(data) => data,
+    loop {
+        let _data = match wav.seek_by_samples(chunk_size) {
+            Ok(data) => handle_chunk(data),
             Err(_error) => break,
         };
-    };
+    }
 
+    // Display spectrogram
     let conf = viuer::Config {
         absolute_offset: false,
         ..Default::default()
