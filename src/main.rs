@@ -2,14 +2,24 @@ extern crate argparse;
 
 use argparse::{ArgumentParser, Store, StoreTrue};
 use image::{DynamicImage, Pixel, Rgba, RgbaImage};
+use rustfft::{algorithm::Radix4, num_complex::Complex, Fft};
 use std::path::Path;
 use std::process;
 use viuer;
 use wavers::{Samples, Wav};
 
-fn handle_block(block : Samples<i16>) {
-    // TODO; Handle block
-    println!("{}", block);
+fn handle_block(block: Samples<i16>, fft_size: usize) {
+    // Drop the last block that is not the expected block size
+    if block.len() != fft_size {
+        return;
+    }
+
+    // Create an FFT instance
+    let fft = Radix4::<i16>::new(block.len(), rustfft::FftDirection::Forward);
+
+    // Some dummy buffer
+    let mut buffer = vec![Complex { re: 0i16, im: 0i16 }; block.len()];
+    fft.process(&mut buffer);
 }
 
 fn main() {
@@ -33,11 +43,13 @@ fn main() {
         process::exit(1);
     }
 
+    // Setup the FFT
+    let fft_size = 1024;
+
     // Loop through the file in chunks
-    let block_size = 16;
     let mut wav: Wav<i16> = Wav::from_path(&fp).unwrap();
-    for block in wav.blocks(block_size, 0) {
-        handle_block(block);
+    for block in wav.blocks(fft_size, 0) {
+        handle_block(block, fft_size);
     }
 
     // Display spectrogram
