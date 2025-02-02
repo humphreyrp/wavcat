@@ -5,10 +5,11 @@ use image::{DynamicImage, Pixel, Rgba, RgbaImage};
 use std::path::Path;
 use std::process;
 use viuer;
-use wavers::Wav;
+use wavers::{Samples, Wav};
 
-fn handle_chunk(_data: u64) {
-    // TODO: Add to fft
+fn handle_block(block : Samples<i16>) {
+    // TODO; Handle block
+    println!("{}", block);
 }
 
 fn main() {
@@ -33,13 +34,10 @@ fn main() {
     }
 
     // Loop through the file in chunks
-    let chunk_size = 16;
+    let block_size = 16;
     let mut wav: Wav<i16> = Wav::from_path(&fp).unwrap();
-    loop {
-        let _data = match wav.seek_by_samples(chunk_size) {
-            Ok(data) => handle_chunk(data),
-            Err(_error) => break,
-        };
+    for block in wav.blocks(block_size, 0) {
+        handle_block(block);
     }
 
     // Display spectrogram
