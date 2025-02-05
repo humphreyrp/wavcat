@@ -8,6 +8,14 @@ use std::process;
 use viuer;
 use wavers::{Samples, Wav};
 
+fn samples_to_buffer(samples: Samples<i16>) -> Vec<Complex<i16>> {
+    let mut out = Vec::with_capacity(samples.len() / 2);
+    for pair in samples.chunks_exact(2) {
+        out.push(Complex::new(pair[0], pair[1]));
+    }
+    out
+}
+
 fn handle_block(block: Samples<i16>, fft_size: usize) {
     // Drop the last block that is not the expected block size
     if block.len() != fft_size {
@@ -18,7 +26,8 @@ fn handle_block(block: Samples<i16>, fft_size: usize) {
     let fft = Radix4::<i16>::new(block.len(), rustfft::FftDirection::Forward);
 
     // Some dummy buffer
-    let mut buffer = vec![Complex { re: 0i16, im: 0i16 }; block.len()];
+    let mut buffer = samples_to_buffer(block);
+    // Process that buffer in place
     fft.process(&mut buffer);
 }
 
