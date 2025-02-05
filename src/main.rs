@@ -24,7 +24,7 @@ fn to_magnitude(samples : Vec<Complex<f32>>) -> Vec<f32> {
     out
 }
 
-fn handle_block(block: Samples<i16>, fft_size: usize) {
+fn handle_block(block: Samples<i16>, fft_size: usize, out_frames: &mut Vec<Vec<f32>>) {
     println!("Calculating block of size: {}, length: {}", fft_size, block.len());
     // Drop the last block that is not the expected block size
     if block.len() / 2 != fft_size {
@@ -38,7 +38,8 @@ fn handle_block(block: Samples<i16>, fft_size: usize) {
     let mut buffer = samples_to_buffer(block);
     fft.process(&mut buffer);
 
-    let _fft_mags = to_magnitude(buffer);
+    let fft_mags = to_magnitude(buffer);
+    out_frames.push(fft_mags);
 }
 
 fn main() {
@@ -65,10 +66,13 @@ fn main() {
     // Setup the FFT
     let fft_size = 1024;
 
+    // Output frames are a list of vectors
+    let mut frames : Vec<Vec<f32>> = Vec::new();
+
     // Loop through the file in chunks
     let mut wav: Wav<i16> = Wav::from_path(&fp).unwrap();
     for block in wav.blocks(fft_size, 0) {
-        handle_block(block, fft_size);
+        handle_block(block, fft_size, &mut frames);
     }
 
     // Display spectrogram
