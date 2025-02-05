@@ -8,27 +8,37 @@ use std::process;
 use viuer;
 use wavers::{Samples, Wav};
 
-fn samples_to_buffer(samples: Samples<i16>) -> Vec<Complex<i16>> {
+fn samples_to_buffer(samples: Samples<i16>) -> Vec<Complex<f32>> {
     let mut out = Vec::with_capacity(samples.len() / 2);
     for pair in samples.chunks_exact(2) {
-        out.push(Complex::new(pair[0], pair[1]));
+        out.push(Complex::<f32>::new(pair[0] as f32, pair[1] as f32));
+    }
+    out
+}
+
+fn to_magnitude(samples : Vec<Complex<f32>>) -> Vec<f32> {
+    let mut out = Vec::with_capacity(samples.len());
+    for s in samples {
+        out.push(s.norm())
     }
     out
 }
 
 fn handle_block(block: Samples<i16>, fft_size: usize) {
+    println!("Calculating block of size: {}, length: {}", fft_size, block.len());
     // Drop the last block that is not the expected block size
-    if block.len() != fft_size {
+    if block.len() / 2 != fft_size {
         return;
     }
 
     // Create an FFT instance
-    let fft = Radix4::<i16>::new(block.len(), rustfft::FftDirection::Forward);
+    let fft = Radix4::<f32>::new(fft_size, rustfft::FftDirection::Forward);
 
-    // Some dummy buffer
+    // Convert to a vector of complex floats
     let mut buffer = samples_to_buffer(block);
-    // Process that buffer in place
     fft.process(&mut buffer);
+
+    let _fft_mags = to_magnitude(buffer);
 }
 
 fn main() {
