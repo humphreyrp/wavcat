@@ -1,8 +1,9 @@
 extern crate argparse;
 
 use argparse::{ArgumentParser, Store, StoreTrue};
-use image::{DynamicImage, Pixel, Rgba, RgbaImage};
+use image::{self, GrayImage, Luma};
 use rustfft::{algorithm::Radix4, num_complex::Complex, Fft};
+use core::f32;
 use std::path::Path;
 use std::process;
 use viuer;
@@ -16,16 +17,15 @@ fn samples_to_buffer(samples: Samples<i16>) -> Vec<Complex<f32>> {
     out
 }
 
-fn to_magnitude(samples : Vec<Complex<f32>>) -> Vec<f32> {
+fn to_db(samples : Vec<Complex<f32>>) -> Vec<f32> {
     let mut out = Vec::with_capacity(samples.len());
     for s in samples {
-        out.push(s.norm())
+        out.push(20.0 * (s.norm() / 1.0).log10())
     }
     out
 }
 
 fn handle_block(block: Samples<i16>, fft_size: usize, out_frames: &mut Vec<Vec<f32>>) {
-    println!("Calculating block of size: {}, length: {}", fft_size, block.len());
     // Drop the last block that is not the expected block size
     if block.len() / 2 != fft_size {
         return;
@@ -38,8 +38,12 @@ fn handle_block(block: Samples<i16>, fft_size: usize, out_frames: &mut Vec<Vec<f
     let mut buffer = samples_to_buffer(block);
     fft.process(&mut buffer);
 
-    let fft_mags = to_magnitude(buffer);
+    let fft_mags = to_db(buffer);
     out_frames.push(fft_mags);
+}
+
+fn quantize(val : f32, min : f32, max : f32) -> u8 {
+    (((max - val) / (max - min)) * 255.0) as u8
 }
 
 fn main() {
@@ -81,10 +85,33 @@ fn main() {
         ..Default::default()
     };
 
-    let mut img = DynamicImage::ImageRgba8(RgbaImage::new(60, 60));
-    let start = Rgba::from_slice(&[255, 0, 0, 255]);
-    let end = Rgba::from_slice(&[0, 0, 255, 255]);
-    image::imageops::vertical_gradient(&mut img, start, end);
+    // Find the max and min values in the frames
+    let mut max = -f32::INFINITY;
+    let mut min = f32::INFINITY;
+    for row in frames.iter() {
+        // println!("{:?}", row);
+        for val in row.iter() {
+            if *val < min {
+                min = *val;
+            }
+            if *val > max {
+                max = *val;
+            }
+        }
+    }
 
-    viuer::print(&img, &conf).unwrap();
+    println!("Min: {}, max: {}", min, max);
+
+    let width = fft_size as u32;
+    let height = frames.len() as u32;
+    let mut img = GrayImage::new(width, height);
+    for (y, row) in frames.iter().enumerate() {
+        for (x, &val) in row.iter().enumerate() {
+            let v = quantize(val, min, max);
+            // println!("val: {}, quantized: {}", val, v);
+            img.put_pixel(x as u32, y as u32, Luma([v]));
+        }
+    }
+
+    viuer::print(&image::DynamicImage::ImageLuma8(img), &conf).unwrap();
 }
