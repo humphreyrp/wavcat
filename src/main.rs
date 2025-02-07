@@ -48,6 +48,7 @@ fn quantize(val : f32, min : f32, max : f32) -> u8 {
 
 fn main() {
     let mut verbose = false;
+    let mut fft_size = 1024;
     let mut fp: String = "".to_string();
 
     {
@@ -58,6 +59,7 @@ fn main() {
             .required();
         ap.refer(&mut verbose)
             .add_option(&["-v", "--verbose"], StoreTrue, "Be verbose");
+        ap.refer(&mut fft_size).add_option(&["--fft-size"], Store, "FFT size");
         ap.parse_args_or_exit();
     }
 
@@ -66,9 +68,6 @@ fn main() {
         println!("File does not exist");
         process::exit(1);
     }
-
-    // Setup the FFT
-    let fft_size = 1024;
 
     // Output frames are a list of vectors
     let mut frames : Vec<Vec<f32>> = Vec::new();
