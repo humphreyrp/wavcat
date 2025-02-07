@@ -1,7 +1,7 @@
 extern crate argparse;
 
 use argparse::{ArgumentParser, Store, StoreTrue};
-use image::{self, GrayImage, Luma};
+use image::{self, Rgb, RgbImage};
 use rustfft::{algorithm::Radix4, num_complex::Complex, Fft};
 use core::f32;
 use std::path::Path;
@@ -42,8 +42,8 @@ fn handle_block(block: Samples<i16>, fft_size: usize, out_frames: &mut Vec<Vec<f
     out_frames.push(fft_mags);
 }
 
-fn quantize(val : f32, min : f32, max : f32) -> u8 {
-    (((max - val) / (max - min)) * 255.0) as u8
+fn quantize(val : f32, min : f32, max : f32) -> usize {
+    (((max - val) / (max - min)) * 255.0) as usize
 }
 
 fn main() {
@@ -100,17 +100,19 @@ fn main() {
     }
 
     println!("Min: {}, max: {}", min, max);
+    let gradient = colorous::TURBO;
 
     let width = fft_size as u32;
     let height = frames.len() as u32;
-    let mut img = GrayImage::new(width, height);
+    let mut img = RgbImage::new(width, height);
     for (y, row) in frames.iter().enumerate() {
         for (x, &val) in row.iter().enumerate() {
             let v = quantize(val, min, max);
+            let color = gradient.eval_rational(v, 255);
             // println!("val: {}, quantized: {}", val, v);
-            img.put_pixel(x as u32, y as u32, Luma([v]));
+            img.put_pixel(x as u32, y as u32, Rgb([color.r, color.g, color.b]));
         }
     }
 
-    viuer::print(&image::DynamicImage::ImageLuma8(img), &conf).unwrap();
+    viuer::print(&image::DynamicImage::ImageRgb8(img), &conf).unwrap();
 }
