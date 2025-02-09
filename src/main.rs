@@ -1,9 +1,10 @@
 extern crate argparse;
 
 use argparse::{ArgumentParser, Store, StoreTrue};
+use colorous::Gradient;
+use core::f32;
 use image::{self, Rgb, RgbImage};
 use rustfft::{algorithm::Radix4, num_complex::Complex, Fft};
-use core::f32;
 use std::path::Path;
 use std::process;
 use viuer;
@@ -17,7 +18,7 @@ fn samples_to_buffer(samples: Samples<i16>) -> Vec<Complex<f32>> {
     out
 }
 
-fn to_db(samples : Vec<Complex<f32>>) -> Vec<f32> {
+fn to_db(samples: Vec<Complex<f32>>) -> Vec<f32> {
     let mut out = Vec::with_capacity(samples.len());
     for s in samples {
         out.push(20.0 * (s.norm() / 1.0).log10())
@@ -42,14 +43,25 @@ fn handle_block(block: Samples<i16>, fft_size: usize, out_frames: &mut Vec<Vec<f
     out_frames.push(fft_mags);
 }
 
-fn quantize(val : f32, min : f32, max : f32) -> usize {
+fn quantize(val: f32, min: f32, max: f32) -> usize {
     (((max - val) / (max - min)) * 255.0) as usize
+}
+
+fn get_gradient(option_str: String) -> Gradient {
+    if option_str == "gray" {
+        colorous::GREYS
+    } else if option_str == "inferno" {
+        colorous::INFERNO
+    } else {
+        colorous::TURBO
+    }
 }
 
 fn main() {
     let mut verbose = false;
     let mut fft_size = 1024;
     let mut fp: String = "".to_string();
+    let mut colorscale: String = "".to_string();
 
     {
         let mut ap = ArgumentParser::new();
@@ -59,7 +71,13 @@ fn main() {
             .required();
         ap.refer(&mut verbose)
             .add_option(&["-v", "--verbose"], StoreTrue, "Be verbose");
-        ap.refer(&mut fft_size).add_option(&["--fft-size"], Store, "FFT size");
+        ap.refer(&mut fft_size)
+            .add_option(&["--fft-size"], Store, "FFT size");
+        ap.refer(&mut colorscale).add_option(
+            &["--colorscale"],
+            Store,
+            "Color scale, valid options: gray, turbo, inferno",
+        );
         ap.parse_args_or_exit();
     }
 
@@ -70,7 +88,7 @@ fn main() {
     }
 
     // Output frames are a list of vectors
-    let mut frames : Vec<Vec<f32>> = Vec::new();
+    let mut frames: Vec<Vec<f32>> = Vec::new();
 
     // Loop through the file in chunks
     let mut wav: Wav<i16> = Wav::from_path(&fp).unwrap();
@@ -100,7 +118,7 @@ fn main() {
     }
 
     println!("Min: {}, max: {}", min, max);
-    let gradient = colorous::TURBO;
+    let gradient = get_gradient(colorscale);
 
     let width = fft_size as u32;
     let height = frames.len() as u32;
