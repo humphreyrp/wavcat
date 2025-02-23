@@ -8,12 +8,15 @@ use rustfft::{algorithm::Radix4, num_complex::Complex, Fft};
 use std::path::Path;
 use std::process;
 use viuer;
-use wavers::{Samples, Wav};
+use wavers::{core::WavInfo, Samples, Wav};
 
 fn samples_to_buffer(samples: Samples<i16>) -> Vec<Complex<f32>> {
     let mut out = Vec::with_capacity(samples.len() / 2);
     for pair in samples.chunks_exact(2) {
-        out.push(Complex::<f32>::new(pair[0] as f32, pair[1] as f32));
+        out.push(Complex::<f32>::new(
+            (pair[0] as f32) / (std::i16::MAX as f32),
+            (pair[1] as f32) / (std::i16::MAX as f32),
+        ));
     }
     out
 }
@@ -57,6 +60,10 @@ fn get_gradient(option_str: String) -> Gradient {
     }
 }
 
+fn print_metadata(info: &WavInfo) {
+    println!("{:?}", info)
+}
+
 fn main() {
     let mut verbose = false;
     let mut fft_size = 1024;
@@ -87,16 +94,18 @@ fn main() {
         process::exit(1);
     }
 
-    // Output frames are a list of vectors
-    let mut frames: Vec<Vec<f32>> = Vec::new();
+    // Parse the wav file
+    let mut wav: Wav<i16> = Wav::from_path(&fp).unwrap();
+    if verbose {
+        print_metadata(&wav.wav_info);
+    }
 
     // Loop through the file in chunks
-    let mut wav: Wav<i16> = Wav::from_path(&fp).unwrap();
+    let mut frames: Vec<Vec<f32>> = Vec::new();
     for block in wav.blocks(fft_size, 0) {
         handle_block(block, fft_size, &mut frames);
     }
 
-    // Display spectrogram
     let conf = viuer::Config {
         absolute_offset: false,
         ..Default::default()
@@ -106,7 +115,6 @@ fn main() {
     let mut max = -f32::INFINITY;
     let mut min = f32::INFINITY;
     for row in frames.iter() {
-        // println!("{:?}", row);
         for val in row.iter() {
             if *val < min {
                 min = *val;
@@ -117,7 +125,6 @@ fn main() {
         }
     }
 
-    println!("Min: {}, max: {}", min, max);
     let gradient = get_gradient(colorscale);
 
     let width = fft_size as u32;
@@ -127,7 +134,6 @@ fn main() {
         for (x, &val) in row.iter().enumerate() {
             let v = quantize(val, min, max);
             let color = gradient.eval_rational(v, 255);
-            // println!("val: {}, quantized: {}", val, v);
             img.put_pixel(x as u32, y as u32, Rgb([color.r, color.g, color.b]));
         }
     }
