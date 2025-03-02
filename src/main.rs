@@ -2,7 +2,7 @@ extern crate argparse;
 
 use argparse::{ArgumentParser, Store, StoreTrue};
 use colorous::Gradient;
-use core::f32;
+use core::{f32, panic};
 use image::{self, Rgb, RgbImage};
 use rustfft::{algorithm::Radix4, num_complex::Complex, Fft};
 use std::path::Path;
@@ -29,17 +29,45 @@ fn to_db(samples: Vec<Complex<f32>>) -> Vec<f32> {
     out
 }
 
-fn handle_block(block: Samples<i16>, fft_size: usize, out_frames: &mut Vec<Vec<f32>>) {
+fn blackman_harris_window(fft_size: u16) -> Vec<f32> {
+    let mut out = Vec::with_capacity(usize::from(fft_size));
+    for i in 0..fft_size {
+        let n = f32::from(i);
+        out.push(
+            0.35875 - 0.48829 * f32::cos((2. * f32::consts::PI * n) / f32::from(fft_size))
+                + 0.14128 * f32::cos((4. * f32::consts::PI * n) / f32::from(fft_size))
+                - 0.01168 * f32::cos((6. * f32::consts::PI * n) / f32::from(fft_size)),
+        );
+    }
+    out
+}
+
+fn apply_window(samples: &mut Vec<Complex<f32>>, window: Vec<f32>) {
+    if samples.len() != window.len() {
+        panic!("Window length does not match block length");
+    }
+    // let mut out = Vec::with_capacity(samples.len());
+    for i in 0..samples.len() {
+        samples[i] = samples[i] * window[i];
+    }
+}
+
+fn handle_block(block: Samples<i16>, fft_size_: u16, out_frames: &mut Vec<Vec<f32>>) {
     // Drop the last block that is not the expected block size
+    let fft_size = usize::from(fft_size_);
     if block.len() / 2 != fft_size {
         return;
     }
 
-    // Create an FFT instance
-    let fft = Radix4::<f32>::new(fft_size, rustfft::FftDirection::Forward);
-
     // Convert to a vector of complex floats
     let mut buffer = samples_to_buffer(block);
+
+    // Apply the windowing function
+    let window = blackman_harris_window(fft_size_);
+    apply_window(&mut buffer, window);
+
+    // Create an FFT instance
+    let fft = Radix4::<f32>::new(usize::from(fft_size), rustfft::FftDirection::Forward);
     fft.process(&mut buffer);
 
     let fft_mags = to_db(buffer);
@@ -66,7 +94,7 @@ fn print_metadata(info: &WavInfo) {
 
 fn main() {
     let mut verbose = false;
-    let mut fft_size = 1024;
+    let mut fft_size: u16 = 1024;
     let mut fp: String = "".to_string();
     let mut colorscale: String = "".to_string();
 
@@ -102,7 +130,7 @@ fn main() {
 
     // Loop through the file in chunks
     let mut frames: Vec<Vec<f32>> = Vec::new();
-    for block in wav.blocks(fft_size, 0) {
+    for block in wav.blocks(usize::from(fft_size), 0) {
         handle_block(block, fft_size, &mut frames);
     }
 
